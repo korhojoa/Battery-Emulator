@@ -270,9 +270,20 @@ void RjxzsBms::transmit_can(unsigned long currentMillis) {
 void RjxzsBms::setup(void) {  // Performs one time setup at startup
   strncpy(datalayer.system.info.battery_protocol, Name, 63);
   datalayer.system.info.battery_protocol[63] = '\0';
-  datalayer.battery.info.max_design_voltage_dV = user_selected_max_pack_voltage_dV;
-  datalayer.battery.info.min_design_voltage_dV = user_selected_min_pack_voltage_dV;
-  datalayer.battery.info.max_cell_voltage_mV = user_selected_max_cell_voltage_mV;
-  datalayer.battery.info.min_cell_voltage_mV = user_selected_min_cell_voltage_mV;
+  // Only override the datalayer defaults when the user has actually configured
+  // limits: the web-UI settings default to 0, and zero or equal cell limits
+  // break consumers that divide by the design span (e.g. the Solax rescale)
+  if (user_selected_max_pack_voltage_dV > 0) {
+    datalayer.battery.info.max_design_voltage_dV = user_selected_max_pack_voltage_dV;
+  }
+  if (user_selected_min_pack_voltage_dV > 0) {
+    datalayer.battery.info.min_design_voltage_dV = user_selected_min_pack_voltage_dV;
+  }
+  if (user_selected_max_cell_voltage_mV > 0) {
+    datalayer.battery.info.max_cell_voltage_mV = user_selected_max_cell_voltage_mV;
+  }
+  if (user_selected_min_cell_voltage_mV > 0) {
+    datalayer.battery.info.min_cell_voltage_mV = user_selected_min_cell_voltage_mV;
+  }
   datalayer.system.status.battery_allows_contactor_closing = true;
 }
