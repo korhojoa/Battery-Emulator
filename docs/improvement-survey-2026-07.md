@@ -66,12 +66,35 @@ charge/discharge state to the inverter.
 `(voltage − 3000) * 10` on a `uint16_t` with no clamp: below 3000 mV it wraps
 to a huge SOC; above 4000 mV it exceeds 100%.
 
-### 1.5 Busy-wait pinning the WiFi core
+### 1.5 `logging_loop` has no unconditional yield and no WDT registration — CORRECTED, downgraded
 
-`Software/Software.cpp:139-147` — `logging_loop` spins in
-`while (sd_initialized)` with no delay when neither SD-logging flag is active,
-running the WiFi core at 100% and potentially starving the connectivity task.
-It is also not registered with the task watchdog.
+Original claim: `logging_loop` (`Software/Software.cpp:139-147`) spins with
+no delay when neither SD-logging flag is active, pinning the WiFi core.
+
+**Correction (community review against d4569a8, July 2026): that failure
+mode is unreachable in current code.** The task is only created if at least
+one SD-logging flag is true (`Software.cpp:739-742`); the only runtime
+writes of `false` to those flags are in the pre-loop `!sd_initialized`
+failure path (`:135-136`), which skips the loop and deletes the task; the
+web UI only writes the NVS keys, which take effect on reboot. And with a
+flag necessarily true, every iteration calls a write function that blocks
+in `xRingbufferReceive(..., pdMS_TO_TICKS(10))` — a yielding wait, so an
+idle logging task sleeps ~10 ms per iteration rather than spinning.
+
+What remains true and worth fixing (cheap insurance):
+- the loop has no unconditional yield of its own — scheduling fairness
+  relies entirely on the ring-buffer timeout;
+- `logging_loop` is not registered with the task watchdog (only
+  `connectivity_loop` and `core_loop` are, `:89`/`:580`);
+- if a runtime toggle for the SD flags (or an `sd_card_active = false`
+  deactivation path) is ever added, the loop becomes exactly the busy-wait
+  originally described — and at `TASK_CONNECTIVITY_PRIO` it would starve
+  `mqtt_loop` (priority 2, same core) outright, tripping the 60 s MQTT
+  watchdog, while `connectivity_loop` (equal priority) would still get
+  round-robin slices.
+
+A `delay(1)` at the end of the loop body plus
+`esp_task_wdt_add`/`esp_task_wdt_reset` covers all of it.
 
 ## 2. Safety design gaps (highest long-term value)
 

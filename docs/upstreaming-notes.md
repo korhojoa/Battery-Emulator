@@ -44,8 +44,13 @@ Findings reference sections in
   covering both.
 - [ ] Renault Kangoo SOC estimate underflow/overflow
   (`RENAULT-KANGOO-BATTERY.cpp:21-27`; survey 1.4; introduced in #2104).
-- [ ] `logging_loop` busy-wait pins WiFi core, not WDT-registered
-  (`Software.cpp:139-147`; survey 1.5).
+- [ ] `logging_loop` hardening (`Software.cpp:139-147`; survey 1.5 —
+  **corrected July 2026**: the busy-wait is unreachable in current code
+  since the task only exists when an SD flag is true and the write paths
+  block in a 10 ms ring-buffer wait). Downgraded to cheap insurance:
+  `delay(1)` at loop end + WDT registration, guarding against a future
+  runtime toggle making the spin real (which would starve `mqtt_loop`,
+  priority 2 on the same core). File as a minor hardening PR, not a bug.
 - [ ] FoxESS `update_values()` clobbers `max_design_voltage_dV` from a
   per-pack-count preset table, overriding BMS-reported limits (0x1872);
   the #1664 log (1 pack, 395 V) spuriously flags overvoltage. Found while
