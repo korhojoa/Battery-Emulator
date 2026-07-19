@@ -48,7 +48,7 @@ std::string snake_case_to_camel_case(const std::string& str) {
   return result;
 }
 
-CAN_frame parse_can_log_line(const std::string& logLine) {
+TimedCanFrame parse_can_log_line(const std::string& logLine) {
   std::stringstream ss(logLine);
   CAN_frame frame = {};
   char dummy;
@@ -56,7 +56,7 @@ CAN_frame parse_can_log_line(const std::string& logLine) {
   double timestamp;
   std::string interfaceName;
 
-  // timestamp and interface name are parsed but not used
+  // interface name is parsed but not used
   ss >> dummy >> timestamp >> dummy;
   ss >> interfaceName;
 
@@ -93,17 +93,25 @@ CAN_frame parse_can_log_line(const std::string& logLine) {
     frame.data.u8[i] = static_cast<uint8_t>(byte);
   }
 
-  return frame;
+  return {frame, timestamp};
 }
 
 std::vector<CAN_frame> parse_can_log_file(const fs::path& filePath) {
+  std::vector<CAN_frame> frames;
+  for (const auto& timed : parse_can_log_file_timed(filePath)) {
+    frames.push_back(timed.frame);
+  }
+  return frames;
+}
+
+std::vector<TimedCanFrame> parse_can_log_file_timed(const fs::path& filePath) {
   std::ifstream logFile(filePath);
   if (!logFile.is_open()) {
     std::cerr << "Error: Could not open file " << filePath << std::endl;
     return {};
   }
 
-  std::vector<CAN_frame> frames;
+  std::vector<TimedCanFrame> frames;
   std::string line;
   int lineNumber = 0;
 

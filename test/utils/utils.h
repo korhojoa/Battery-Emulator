@@ -10,3 +10,12 @@ std::vector<std::string> split(const std::string& text, char sep);
 std::string snake_case_to_camel_case(const std::string& str);
 
 std::vector<CAN_frame> parse_can_log_file(const fs::path& filePath);
+
+// A parsed log line together with the capture timestamp (seconds, as written
+// in the log). Used to drive virtual time during replay.
+struct TimedCanFrame {
+  CAN_frame frame;
+  double timestamp_s;
+};
+
+std::vector<TimedCanFrame> parse_can_log_file_timed(const fs::path& filePath);

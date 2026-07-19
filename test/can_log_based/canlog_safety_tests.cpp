@@ -60,11 +60,21 @@ class CanLogTestFixture : public testing::Test {
   }
 
   void ProcessLog() {
-    std::vector<CAN_frame> parsedMessages = parse_can_log_file(path_);
+    std::vector<TimedCanFrame> parsedMessages = parse_can_log_file_timed(path_);
+
+    // Advance virtual time along the log's own timestamps and tick the
+    // driver's transmit scheduler, so poll-based drivers (which gate parsing
+    // of poll responses on their own request state machines) behave as they
+    // would on real hardware.
+    double t0 = parsedMessages.empty() ? 0.0 : parsedMessages.front().timestamp_s;
+    const uint64_t start_ms = 100000;
 
     for (const auto& msg : parsedMessages) {
-      dynamic_cast<CanBattery*>(battery)->handle_incoming_can_frame(msg);
-      dynamic_cast<CanBattery*>(battery)->update_values();
+      set_millis64(start_ms + (uint64_t)((msg.timestamp_s - t0) * 1000.0));
+      CanBattery* canBattery = dynamic_cast<CanBattery*>(battery);
+      canBattery->handle_incoming_can_frame(msg.frame);
+      canBattery->transmit_can(millis());
+      canBattery->update_values();
     }
 
     update_machineryprotection();
