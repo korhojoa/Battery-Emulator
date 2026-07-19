@@ -81,6 +81,7 @@ void FoxessBattery::handle_incoming_can_frame(CAN_frame rx_frame) {
       max_discharge_power_dA = (uint16_t)(rx_frame.data.u8[7] << 8 | rx_frame.data.u8[6]);
       break;
     case 0x1873:  //BMS_PackData
+      datalayer.battery.status.CAN_battery_still_alive = CAN_STILL_ALIVE;
       datalayer.battery.status.voltage_dV = (uint16_t)(rx_frame.data.u8[1] << 8 | rx_frame.data.u8[0]);
       datalayer.battery.status.current_dA =
           (int16_t)(rx_frame.data.u8[3] << 8 | rx_frame.data.u8[2]);  //TODO: Direction right way?
