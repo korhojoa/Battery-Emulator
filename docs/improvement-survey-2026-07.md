@@ -32,11 +32,33 @@ by `(max_cell_voltage_mV − min_cell_voltage_mV)`; if both are 0 or equal,
 that is a divide-by-zero. The signed intermediate can also go negative and
 wraps when stored into a `uint16_t`.
 
-### 1.3 Comment/code mismatch on current sign (Pylon battery)
+### 1.3 Comment/code mismatch on current sign (Pylon battery) — RESOLVED: code correct, comment stale
 
 `Software/src/battery/PYLON-BATTERY.cpp:18` — the comment says "invert the
-sign" but the code doesn't. Charge/discharge direction is exactly the thing
-that must not be ambiguous; should be resolved against a real CAN log.
+sign" but the code doesn't. **Verified against real logs (July 2026): the
+code is correct and the comment is stale copy-paste** (the identical comment
+appears in the Kia/Ioniq drivers, which do negate).
+
+Evidence: the `_dyness.zip` logs on upstream issue
+[#2082](https://github.com/dalathegreat/Battery-Emulator/issues/2082) — ~17k
+RX 0x4210 frames from a real Dyness Stack 100 speaking Pylon HV protocol,
+with charge/discharge phases labeled in the filenames (laden/entladen).
+Decoding bytes 2-3 (little-endian, −30000): SOC rises 49→100% while current
+is +11 A and falls 100→50% at −22.3 A; pack voltage rises under positive
+current and sags under negative. So on the wire, raw > 30000 = charging,
+which matches the datalayer convention (positive `current_dA` = charging,
+`types.cpp:24`) with no negation needed. Corroborated by maintainer
+statements in issue
+[#2019](https://github.com/dalathegreat/Battery-Emulator/issues/2019)
+("incoming 30300 → charging 30 A").
+
+**New bug found during verification:** the Pylon *inverter-side* status byte
+is inverted — `Software/src/inverter/PYLON-CAN.cpp:138-142` maps
+`reported_current_dA < 0` to "Charge" (0x01) and `> 0` to "Discharge"
+(0x02), backwards relative to both the datalayer convention and the verified
+wire convention. The same file transmits the current field itself correctly
+(unnegated), so only the 0x425X battery-status byte misreports
+charge/discharge state to the inverter.
 
 ### 1.4 SOC estimate underflow (Renault Kangoo)
 

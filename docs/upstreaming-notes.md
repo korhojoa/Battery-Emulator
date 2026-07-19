@@ -28,8 +28,20 @@ Findings reference sections in
   fixing via a shared bounds-checked `Battery::set_cell_voltage()` helper.
 - [ ] Solax cell rescale divide-by-zero / negative-wrap
   (`SOLAX-CAN.cpp:69-77`; survey 1.2; introduced in upstream PR #2151).
-- [ ] Pylon current-sign comment/code mismatch (`PYLON-BATTERY.cpp:18`;
-  survey 1.3). Needs verification against a real log before filing.
+- [x] ~~Pylon current-sign comment/code mismatch~~ (`PYLON-BATTERY.cpp:18`;
+  survey 1.3). **Verified July 2026 against real Dyness Stack 100 logs from
+  upstream issue #2082: the code is correct** (wire raw > 30000 = charging,
+  matching the datalayer convention unnegated); the "invert the sign"
+  comment is stale copy-paste. Downgraded to a comment cleanup — fold into
+  any Pylon-touching PR rather than filing an issue.
+- [ ] **NEW: Pylon inverter-side 0x425X status byte inverted**
+  (`PYLON-CAN.cpp:138-142`): maps negative `reported_current_dA` to
+  "Charge" and positive to "Discharge" — backwards vs. both the datalayer
+  convention (`types.cpp:24`) and the wire convention verified above. The
+  current field itself is transmitted correctly, so only the reported
+  charge/discharge *state* is wrong. `FERROAMP-CAN.cpp:58-66` has the
+  identical inverted block (copy-paste propagation) — file as one issue
+  covering both.
 - [ ] Renault Kangoo SOC estimate underflow/overflow
   (`RENAULT-KANGOO-BATTERY.cpp:21-27`; survey 1.4; introduced in #2104).
 - [ ] `logging_loop` busy-wait pins WiFi core, not WDT-registered
