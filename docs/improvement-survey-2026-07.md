@@ -12,25 +12,49 @@ section at the end.
 
 ## 1. Concrete bugs worth fixing now
 
-### 1.1 Out-of-bounds write from CAN data (Geely SEA)
+### 1.1 Out-of-bounds write from CAN data (Geely SEA) — VERIFIED against d4569a8, stands as latent
 
-`Software/src/battery/GEELY-SEA-BATTERY.cpp:128` — cell voltages are written to
-`cell_voltages_mV[rx_frame.data.u8[2] - 1]` with no bounds check. The array
-holds `MAX_AMOUNT_CELLS` (192) entries but the index byte can be anything
-0–255: values above 192 write past the array, and a value of 0 produces
-index −1. `number_of_cells` is also set from the same byte unclamped, so
-downstream loops iterate out of bounds too.
+`Software/src/battery/GEELY-SEA-BATTERY.cpp` (frame 0x142, mux byte > 0x02)
+— cell voltages are written to `cell_voltages_mV[rx_frame.data.u8[2] - 1]`
+with no bounds check. The array holds `MAX_AMOUNT_CELLS` (192) entries but
+the index byte can be anything 0–255: values above 192 write past the array
+into adjacent datalayer fields, and a value of 0 produces index −1.
+`number_of_cells` is also set from the same byte unclamped, so downstream
+loops read out of bounds too.
+
+**Reachability check (July 2026):** unchanged in current `main`; no
+structural gate. Empirically, a real Zeekr 001 battery-only capture (496
+frames of 0x142 in dalathegreat/EV-CANlogs) sends index values 1–110 only —
+never 0, never >192 — so a healthy pack does not trigger it. It is a latent
+memory-corruption bug reachable only via malformed/unexpected bus traffic or
+an SEA-platform variant with different 0x142 semantics; defensive severity,
+not a crash in normal operation.
 
 Most other drivers (SIMPBMS, MG-HS-PHEV, Tesla, CMP) bound this correctly — a
 shared bounds-checked `Battery::set_cell_voltage(idx, mV)` helper on the base
 class would fix this and prevent the whole bug class recurring.
 
-### 1.2 Divide-by-zero and sign wrap (Solax inverter)
+### 1.2 Divide-by-zero and sign wrap (Solax inverter) — VERIFIED against d4569a8, severity UPGRADED
 
-`Software/src/inverter/SOLAX-CAN.cpp:69-77` — the cell-voltage rescale divides
-by `(max_cell_voltage_mV − min_cell_voltage_mV)`; if both are 0 or equal,
-that is a divide-by-zero. The signed intermediate can also go negative and
-wraps when stored into a `uint16_t`.
+`Software/src/inverter/SOLAX-CAN.cpp:69-77` — the cell-voltage rescale
+divides by the **design** span
+`(info.max_cell_voltage_mV − info.min_cell_voltage_mV)` (correction: the
+original text didn't specify; the live readings have fake-value fallbacks,
+the design limits have none). The signed intermediate can also go negative
+and wraps when stored into a `uint16_t`.
+
+**Reachability check (July 2026):** worse than originally stated. The
+datalayer defaults (4300/2700) are safe, but custom-BMS drivers copy the
+web-UI cell-limit settings into `info` — and 7 of 9 do so **unguarded**
+(CellPower, Daly, Ennoid, Growatt HV ARK, Orion, RJXZS, SimpBMS; only Pylon
+and Relion guard with `> 0`). The NVS default for those settings is 0 and
+the web form validates only `[0-9]+` with no cross-field check. So any of
+those 7 batteries + Solax inverter with cell limits unset (or set equal)
+gives span 0 → integer divide-by-zero in the transmit path → Xtensa
+exception → panic **reboot loop**, which also takes down the web UI needed
+to fix the setting. Fix both ends: guard the division in SOLAX-CAN, and
+apply user cell limits only when nonzero (matching the Pylon/Relion
+pattern) or validate max > min in the web UI.
 
 ### 1.3 Comment/code mismatch on current sign (Pylon battery) — RESOLVED: code correct, comment stale
 
@@ -60,11 +84,20 @@ wire convention. The same file transmits the current field itself correctly
 (unnegated), so only the 0x425X battery-status byte misreports
 charge/discharge state to the inverter.
 
-### 1.4 SOC estimate underflow (Renault Kangoo)
+### 1.4 SOC estimate underflow (Renault Kangoo) — VERIFIED against d4569a8, stands with corrections
 
-`Software/src/battery/RENAULT-KANGOO-BATTERY.cpp:21-27` —
-`(voltage − 3000) * 10` on a `uint16_t` with no clamp: below 3000 mV it wraps
-to a huge SOC; above 4000 mV it exceeds 100%.
+`Software/src/battery/RENAULT-KANGOO-BATTERY.cpp` (`estimate_SOC_from_voltage`)
+— `(voltage − 3000) * 10` on a `uint16_t` with no clamp.
+
+**Corrections from re-check (July 2026):** the input is **pack voltage in
+dV** (300.0–400.0 V), not cell millivolts as originally written, and the
+path only runs when the user opts into `user_selected_use_estimated_SOC`.
+Within that gate the bug is fully real: at startup `voltage_dV` is 0 until
+the first voltage frame, so `real_soc` wraps to 35,536 pptt (355 %), and any
+pack sag below 300 V (plausible at deep discharge) does the same; above
+400 V it exceeds 100 %. Nothing clamps `real_soc` downstream in non-scaled
+mode (survey §5). Fix: clamp the estimate to 0–10000 and skip it while
+`voltage_dV` is unpopulated.
 
 ### 1.5 `logging_loop` has no unconditional yield and no WDT registration — CORRECTED, downgraded
 

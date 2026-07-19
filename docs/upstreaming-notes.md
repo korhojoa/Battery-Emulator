@@ -24,10 +24,19 @@ Findings reference sections in
 ## Bugs to file as issues (or fix-PRs directly)
 
 - [ ] Geely SEA out-of-bounds cell-voltage write + unclamped
-  `number_of_cells` (`GEELY-SEA-BATTERY.cpp:128`; survey 1.1). Prefer
-  fixing via a shared bounds-checked `Battery::set_cell_voltage()` helper.
+  `number_of_cells` (`GEELY-SEA-BATTERY.cpp`, frame 0x142; survey 1.1).
+  **Re-verified July 2026 against d4569a8:** unchanged, no structural gate;
+  real Zeekr traffic sends indices 1–110 only, so latent (malformed-input)
+  severity — file as robustness fix. Prefer fixing via a shared
+  bounds-checked `Battery::set_cell_voltage()` helper.
 - [ ] Solax cell rescale divide-by-zero / negative-wrap
   (`SOLAX-CAN.cpp:69-77`; survey 1.2; introduced in upstream PR #2151).
+  **Re-verified July 2026, severity UPGRADED:** divisor is the *design*
+  cell-limit span; 7 of 9 custom-BMS drivers copy web-UI cell limits into
+  it unguarded and the NVS default is 0 → those batteries + Solax with
+  unset/equal limits = div-by-zero panic **reboot loop**. Two-part fix:
+  guard the division, and make unguarded drivers apply user limits only
+  when nonzero (Pylon/Relion already do) or add web-UI validation.
 - [x] ~~Pylon current-sign comment/code mismatch~~ (`PYLON-BATTERY.cpp:18`;
   survey 1.3). **Verified July 2026 against real Dyness Stack 100 logs from
   upstream issue #2082: the code is correct** (wire raw > 30000 = charging,
@@ -43,7 +52,12 @@ Findings reference sections in
   identical inverted block (copy-paste propagation) — file as one issue
   covering both.
 - [ ] Renault Kangoo SOC estimate underflow/overflow
-  (`RENAULT-KANGOO-BATTERY.cpp:21-27`; survey 1.4; introduced in #2104).
+  (`RENAULT-KANGOO-BATTERY.cpp`; survey 1.4; introduced in #2104).
+  **Re-verified July 2026 with corrections:** input is pack dV (not cell
+  mV) and the path is gated behind the opt-in
+  `user_selected_use_estimated_SOC`; within that gate it's real — 355 % SOC
+  at startup while `voltage_dV` is 0, wrap below 300 V pack. Fix: clamp to
+  0–10000 and skip while voltage unpopulated.
 - [ ] `logging_loop` hardening (`Software.cpp:139-147`; survey 1.5 —
   **corrected July 2026**: the busy-wait is unreachable in current code
   since the task only exists when an SD flag is true and the write paths
