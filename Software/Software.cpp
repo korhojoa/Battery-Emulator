@@ -136,6 +136,8 @@ void logging_loop(void*) {
     datalayer.system.info.CAN_SD_logging_active = false;
   }
 
+  esp_task_wdt_add(NULL);  // Register this task with WDT
+
   while (sd_initialized) {
     if (datalayer.system.info.SD_logging_active) {
       write_log_to_sdcard();
@@ -144,6 +146,13 @@ void logging_loop(void*) {
     if (datalayer.system.info.CAN_SD_logging_active) {
       write_can_frame_to_sdcard();
     }
+
+    esp_task_wdt_reset();  // Reset watchdog
+    // Scheduling fairness currently relies on the ring-buffer receive timeouts
+    // inside the write functions; yield unconditionally so a future runtime
+    // toggle of the logging flags cannot turn this loop into a busy-wait that
+    // starves lower-priority tasks on this core
+    delay(1);
   }
   // Delete the logging task only if SD failed to initialize to prevent panic.
   vTaskDelete(NULL);
