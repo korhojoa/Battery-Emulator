@@ -1,0 +1,63 @@
+# Upstreaming notes
+
+Tracking list for work on this fork that is intended to go upstream to
+dalathegreat/Battery-Emulator. Nothing below has been filed or opened yet.
+Findings reference sections in
+[improvement-survey-2026-07.md](improvement-survey-2026-07.md).
+
+## Branches ready to become PRs
+
+- [ ] **`test/canlog-replay-fixtures`** — CAN log converter
+  (`test/can_log_based/convert_can_log.py`), nine real-log base fixtures
+  (Dacia Spring, Jaguar I-PACE, Kia eNiro, Nissan LEAF 62 kWh, Renault
+  Zoe1/Zoe2, Tesla Model 3, Volvo SPA, Ford Mach-E; replay coverage
+  5 → 13 battery types), and the timed-replay harness change (virtual
+  `millis()` from log timestamps + driver transmit-scheduler ticks).
+  All 76 native tests pass. Self-contained; no production-code changes.
+- [ ] **`fix/foxess-can-still-alive`** — one-line FoxESS fix: renew
+  `CAN_battery_still_alive` on 0x1873 BMS_PackData. Without it any FoxESS
+  install raises `EVENT_CAN_BATTERY_MISSING` ~60 s after startup.
+- [ ] **`docs/improvement-survey`** (this branch) — survey document + ADR
+  scaffolding. Optional to upstream; the ADR proposal (`docs/adr/`) could
+  go as its own small PR to start the conversation.
+
+## Bugs to file as issues (or fix-PRs directly)
+
+- [ ] Geely SEA out-of-bounds cell-voltage write + unclamped
+  `number_of_cells` (`GEELY-SEA-BATTERY.cpp:128`; survey 1.1). Prefer
+  fixing via a shared bounds-checked `Battery::set_cell_voltage()` helper.
+- [ ] Solax cell rescale divide-by-zero / negative-wrap
+  (`SOLAX-CAN.cpp:69-77`; survey 1.2; introduced in upstream PR #2151).
+- [ ] Pylon current-sign comment/code mismatch (`PYLON-BATTERY.cpp:18`;
+  survey 1.3). Needs verification against a real log before filing.
+- [ ] Renault Kangoo SOC estimate underflow/overflow
+  (`RENAULT-KANGOO-BATTERY.cpp:21-27`; survey 1.4; introduced in #2104).
+- [ ] `logging_loop` busy-wait pins WiFi core, not WDT-registered
+  (`Software.cpp:139-147`; survey 1.5).
+- [ ] FoxESS `update_values()` clobbers `max_design_voltage_dV` from a
+  per-pack-count preset table, overriding BMS-reported limits (0x1872);
+  the #1664 log (1 pack, 395 V) spuriously flags overvoltage. Found while
+  building fixtures.
+
+## Design discussions to raise (issue or ADR-style proposal)
+
+- [ ] Event severity vs. contactor policy: over/under-voltage, cell
+  events, welded contactor, isolation fault are WARNING-only and never
+  open contactors (survey §2). Supporting evidence upstream: #581, #1534.
+- [ ] Staleness policy: stale battery values forwarded to inverter for up
+  to ~70 s after CAN loss; no per-field invalidation (survey §2; upstream
+  #630 was closed without a generic implementation).
+- [ ] Cross-core `datalayer` synchronization (survey §3).
+- [ ] Fault-flap accumulator reset (`timeSpentInFaultedMode`, survey §2).
+
+## Test-harness follow-ups (not yet started)
+
+- [ ] Per-fixture pack-limit flags so custom-BMS bench logs (Thunderstruck
+  #2144, RJXZS #1764) can pass `base` despite not matching the assumed
+  90s-NMC limits in `canlog_safety_tests.cpp` SetUp.
+- [ ] Fixtures for Geely SEA / VW MEB / BMW i3 need captures taken with a
+  tester or emulator attached (temps/cells are UDS-poll-only); the
+  vehicle-only captures in EV-CANlogs cannot satisfy `base`.
+- [ ] Remaining direct-use logs not yet cut into fixtures: BYD Dolphin
+  (#1043, 10 MB), Thunderstruck (#2144), BMW i3 (#1783/#2313, blocked on
+  poll data), FoxESS (#1664, blocked on max_design bug above).

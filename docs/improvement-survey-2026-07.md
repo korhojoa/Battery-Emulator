@@ -144,6 +144,28 @@ The native GoogleTest setup with the Arduino/FreeRTOS emulation layer
     candump), Polestar 2
     ([#442](https://github.com/dalathegreat/Battery-Emulator/issues/442),
     custom).
+
+  **Update:** branch `test/canlog-replay-fixtures` acts on the above — it adds
+  `test/can_log_based/convert_can_log.py` (converts emulator/candump/
+  SavvyCAN/CANHacker/Vector-.asc captures to the fixture format) and nine
+  real-log `base` fixtures: Dacia Spring, Jaguar I-PACE, Kia eNiro, Nissan
+  LEAF 62 kWh, Renault Zoe1, Zoe2, Tesla Model 3, Volvo SPA, and Ford
+  Mach-E — taking replay coverage from 5 to 13 battery types. The replay
+  harness now advances virtual time from log timestamps and ticks the
+  driver's transmit scheduler, so poll-based drivers behave as on real
+  hardware. Attempting this surfaced further driver findings:
+  - FoxESS never renewed `CAN_battery_still_alive` (fixed on branch
+    `fix/foxess-can-still-alive`),
+    and its `update_values()` recomputes `max_design_voltage_dV` from a
+    per-pack-count preset table, clobbering the limits the BMS reports in
+    frame 0x1872 — the FoxESS log from
+    [#1664](https://github.com/dalathegreat/Battery-Emulator/issues/1664)
+    reports 1 pack at 395 V, so the preset (584 dV) spuriously flags
+    overvoltage.
+  - Geely SEA, VW MEB, and BMW i3 report temperatures and/or cell voltages
+    only via UDS poll responses, so vehicle-only captures can never satisfy
+    the `base` fixture checks for them; fixtures for these need captures
+    taken with an emulator or tester attached.
 - `test/CMakeLists.txt` hardcodes ~90 source files; new drivers silently drop
   out of native compilation unless manually added. Auto-globbing or a CI
   assertion would close that hole.
