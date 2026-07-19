@@ -7,6 +7,23 @@ Findings reference sections in
 
 ## Branches ready to become PRs
 
+All fix branches below are based on upstream main `d4569a85` and pass the
+native test suite (67 tests). Created July 2026, not yet filed:
+
+- [ ] **`fix/geely-sea-cell-index-bounds`** — bounds-check 0x142 cell index
+  (survey 1.1)
+- [ ] **`fix/solax-cell-rescale-div0`** — guard design-span division + clamp
+  rescale (survey 1.2, inverter side)
+- [ ] **`fix/custom-bms-user-limit-guards`** — 7 drivers apply user limits
+  only when nonzero (survey 1.2, battery side)
+- [ ] **`fix/kangoo-soc-estimate-clamp`** — clamp SOC estimate to 0–100 %
+  (survey 1.4)
+- [ ] **`fix/pylon-ferroamp-status-byte`** — fix inverted 0x425X status byte
+  in PYLON-CAN + FERROAMP-CAN, replace stale PYLON-BATTERY comment
+  (survey 1.3)
+- [ ] **`fix/logging-loop-hardening`** — WDT registration + unconditional
+  yield (survey 1.5, downgraded item)
+
 - [ ] **`test/canlog-replay-fixtures`** — CAN log converter
   (`test/can_log_based/convert_can_log.py`), nine real-log base fixtures
   (Dacia Spring, Jaguar I-PACE, Kia eNiro, Nissan LEAF 62 kWh, Renault
