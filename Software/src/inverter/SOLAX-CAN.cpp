@@ -4,6 +4,7 @@
 #include "../datalayer/datalayer.h"
 #include "../devboard/utils/events.h"
 #include "../devboard/utils/logging.h"
+#include "../devboard/utils/value_mapping.h"
 #include "../inverter/INVERTERS.h"
 
 // __builtin_bswap64 needed to convert to ESP32 little endian format
@@ -66,12 +67,26 @@ void SolaxInverter::update_values() {
   }
 
   // Rescale to the range 3.0->3.5V
-  cell_max_voltage_mV =
-      3000 + ((cell_max_voltage_mV - datalayer.battery.info.min_cell_voltage_mV) * (3500 - 3000)) /
-                 (datalayer.battery.info.max_cell_voltage_mV - datalayer.battery.info.min_cell_voltage_mV);
-  cell_min_voltage_mV =
-      3000 + ((cell_min_voltage_mV - datalayer.battery.info.min_cell_voltage_mV) * (3500 - 3000)) /
-                 (datalayer.battery.info.max_cell_voltage_mV - datalayer.battery.info.min_cell_voltage_mV);
+  // The design limits are user-configurable for custom-BMS batteries and may be
+  // unset (0) or equal, so guard the span to avoid dividing by zero; clamp the
+  // result so live values outside the design window cannot go negative and wrap
+  // in the unsigned dV variables below
+  int32_t cell_design_span_mV =
+      (int32_t)datalayer.battery.info.max_cell_voltage_mV - (int32_t)datalayer.battery.info.min_cell_voltage_mV;
+  if (cell_design_span_mV > 0) {
+    cell_max_voltage_mV =
+        3000 + ((cell_max_voltage_mV - datalayer.battery.info.min_cell_voltage_mV) * (3500 - 3000)) /
+                   cell_design_span_mV;
+    cell_min_voltage_mV =
+        3000 + ((cell_min_voltage_mV - datalayer.battery.info.min_cell_voltage_mV) * (3500 - 3000)) /
+                   cell_design_span_mV;
+    cell_max_voltage_mV = CONSTRAIN(cell_max_voltage_mV, 3000, 3500);
+    cell_min_voltage_mV = CONSTRAIN(cell_min_voltage_mV, 3000, 3500);
+  } else {
+    // No usable design window: send the same neutral value as during startup
+    cell_max_voltage_mV = 3300;
+    cell_min_voltage_mV = 3300;
+  }
 
   uint16_t cell_max_voltage_dV = cell_max_voltage_mV / 100;
   uint16_t cell_min_voltage_dV = cell_min_voltage_mV / 100;
