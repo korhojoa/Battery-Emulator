@@ -125,11 +125,15 @@ void GeelySeaBattery::handle_incoming_can_frame(CAN_frame rx_frame) {
       } else if (rx_frame.data.u8[0] == 0x02) {
         datalayer.battery.status.cell_min_voltage_mV = ((rx_frame.data.u8[3] << 8) | rx_frame.data.u8[4]) >> 3;
       } else if (rx_frame.data.u8[0] > 0x02) {
-        datalayer.battery.status.cell_voltages_mV[rx_frame.data.u8[2] - 1] =
-            ((rx_frame.data.u8[3] << 8) | rx_frame.data.u8[4]) >> 3;
-        if (rx_frame.data.u8[2] > datalayer.battery.info.number_of_cells)  // Detect number of cells
-        {
-          datalayer.battery.info.number_of_cells = rx_frame.data.u8[2];
+        // Cell index byte comes straight off the bus: 0 would index cell_voltages_mV[-1]
+        // and values above MAX_AMOUNT_CELLS would write past the array
+        if (rx_frame.data.u8[2] >= 1 && rx_frame.data.u8[2] <= MAX_AMOUNT_CELLS) {
+          datalayer.battery.status.cell_voltages_mV[rx_frame.data.u8[2] - 1] =
+              ((rx_frame.data.u8[3] << 8) | rx_frame.data.u8[4]) >> 3;
+          if (rx_frame.data.u8[2] > datalayer.battery.info.number_of_cells)  // Detect number of cells
+          {
+            datalayer.battery.info.number_of_cells = rx_frame.data.u8[2];
+          }
         }
       }
       break;
