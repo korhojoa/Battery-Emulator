@@ -19,11 +19,16 @@ This page has info on the larger 33kWh pack: https://openinverter.org/wiki/Renau
 */
 
 uint16_t estimate_SOC_from_voltage(uint16_t voltage) {
-  uint16_t result = 0;
-  //Voltage ranges between 4000dV when full, and 3000dV when empty
-  result = (voltage - 3000);  //Make the range
-  result = result * 10;       //Add decimal
-  return result;
+  //Voltage ranges between 4000dV when full, and 3000dV when empty.
+  //Clamp to that window: voltage_dV is 0 at startup before the first frame,
+  //and a sagging pack below 3000dV would otherwise underflow to a huge SOC
+  if (voltage <= 3000) {
+    return 0;
+  }
+  if (voltage >= 4000) {
+    return 10000;
+  }
+  return (voltage - 3000) * 10;
 }
 
 void RenaultKangooBattery::
