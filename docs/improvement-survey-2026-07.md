@@ -115,8 +115,35 @@ The native GoogleTest setup with the Arduino/FreeRTOS emulation layer
   timing, and inverted-logic (NC contactor) branches is straightforward.
 - **CAN-log replay tests cover only ~5 of 62 battery types.** The framework is
   fully data-driven — dropping a log file into `test/can_log_based/can_logs/`
-  adds coverage with zero code. Soliciting logs from the community would scale
-  this fast.
+  adds coverage with zero code. And the logs largely already exist upstream:
+  - [dalathegreat/EV-CANlogs](https://github.com/dalathegreat/EV-CANlogs)
+    holds vehicle captures covering ~15 battery types (Tesla Model 3, Nissan
+    LEAF, Kia EV6/eNiro/Niro PHEV, Geely SEA/Zeekr/EX30, Jaguar iPace, BMW i3,
+    Think City, Dacia Spring, Ford Mach-E, and more) in a mix of formats
+    (candump, SavvyCAN CSV, Vector .asc, PCAN .trc — a small conversion
+    script covers most). Related: `hyundai-santa-fe-phev-battery`,
+    `Ioniq28Investigations`.
+  - Web-UI logs attached to issues/PRs (`canlog_HH-MM-SS.txt`) are **already
+    in the exact fixture format**. Directly usable examples: Volvo SPA
+    ([#2403](https://github.com/dalathegreat/Battery-Emulator/issues/2403)),
+    BMW i3 ([#2313](https://github.com/dalathegreat/Battery-Emulator/issues/2313),
+    [#1783](https://github.com/dalathegreat/Battery-Emulator/issues/1783)),
+    Renault Zoe2 ([#1692](https://github.com/dalathegreat/Battery-Emulator/issues/1692)
+    — real replacement for the currently-synthetic Zoe2 fixture),
+    Zoe1 ([#1274](https://github.com/dalathegreat/Battery-Emulator/issues/1274)),
+    BYD Atto3/Dolphin ([#1022](https://github.com/dalathegreat/Battery-Emulator/issues/1022),
+    [#1043](https://github.com/dalathegreat/Battery-Emulator/issues/1043)),
+    RJXZS BMS ([#1764](https://github.com/dalathegreat/Battery-Emulator/issues/1764)),
+    FoxESS ([#1664](https://github.com/dalathegreat/Battery-Emulator/issues/1664)),
+    Thunderstruck ([#2144](https://github.com/dalathegreat/Battery-Emulator/pull/2144)),
+    Ford Mach-E ([#2418](https://github.com/dalathegreat/Battery-Emulator/pull/2418)).
+  - Formats needing conversion: Kia E-GMP
+    ([#387](https://github.com/dalathegreat/Battery-Emulator/issues/387),
+    SavvyCAN/Vector), VW MEB
+    ([#524](https://github.com/dalathegreat/Battery-Emulator/issues/524),
+    candump), Polestar 2
+    ([#442](https://github.com/dalathegreat/Battery-Emulator/issues/442),
+    custom).
 - `test/CMakeLists.txt` hardcodes ~90 source files; new drivers silently drop
   out of native compilation unless manually added. Auto-globbing or a CI
   assertion would close that hole.
