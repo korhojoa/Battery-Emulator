@@ -135,9 +135,11 @@ void PylonInverter::
   // Status=Bit 0,1,2= 0:Sleep, 1:Charge, 2:Discharge 3:Idle. Bit3 ForceChargeReq. Bit4 Balance charge Request
   if (datalayer.system.status.system_status == FAULT) {
     PYLON_425X.data.u8[0] = (0x00);  // Sleep
-  } else if (datalayer.battery.status.reported_current_dA < 0) {
-    PYLON_425X.data.u8[0] = (0x01);  // Charge
   } else if (datalayer.battery.status.reported_current_dA > 0) {
+    // Positive current is charging, both in the datalayer convention and on the
+    // Pylon HV wire (verified against real Dyness Stack 100 logs, upstream #2082)
+    PYLON_425X.data.u8[0] = (0x01);  // Charge
+  } else if (datalayer.battery.status.reported_current_dA < 0) {
     PYLON_425X.data.u8[0] = (0x02);  // Discharge
   } else if (datalayer.battery.status.reported_current_dA == 0) {
     PYLON_425X.data.u8[0] = (0x03);  // Idle

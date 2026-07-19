@@ -15,7 +15,10 @@ void PylonBattery::update_values() {
 
   datalayer_battery->status.voltage_dV = voltage_dV;  //value is *10 (3700 = 370.0)
 
-  datalayer_battery->status.current_dA = current_dA;  //value is *10 (150 = 15.0) , invert the sign
+  // Value is *10 (150 = 15.0). Pylon HV wire convention is positive = charging,
+  // same as the datalayer convention, so no sign inversion is needed (verified
+  // against real Dyness Stack 100 logs, upstream issue #2082)
+  datalayer_battery->status.current_dA = current_dA;
 
   datalayer_battery->status.max_charge_power_W = ((max_charge_current_dA / 10) * (voltage_dV / 10));
 
